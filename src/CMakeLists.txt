@@ -7,7 +7,7 @@ add_library(zio SHARED ${SRC})
 set_target_properties(zio PROPERTIES VERSION 0.1.0 SOVERSION 0.1)
 
 if (WIN32)
-	target_link_libraries(socket Ws2_32)
+	target_link_libraries(zio Ws2_32)
 endif ()
 
 install(TARGETS zio

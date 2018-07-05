@@ -40,7 +40,7 @@ static int __init()
 	WSADATA data;
 	if (WSAStartup(sockVersion, &data) != 0) {
 		printf("WSAStartup error<MAKEWORD(2,2)>, error code is %d\n",
-		       GetLastError());
+		       WSAGetLastError());
 		return -1;
 	}
 #endif
@@ -51,7 +51,7 @@ static int __init()
 static int __get_cur_err()
 {
 #if defined(_WIN32)
-	return GetLastError();
+	return WSAGetLastError();
 #else
 	return errno;
 #endif
@@ -122,28 +122,24 @@ static int __read_tcp(socket_cli_t *s, void *buf, int len, int timeout)
 		return -1;
 	}
 
-	if (-1 == __select_out(s, timeout)) {
+	/*if (-1 == __select_out(s, timeout)) {
 		printf(
 			"timeout, not bytes to read, Maybe disconnect from server or server is close.\n");
 		return -1; // timeout
-	}
+	}*/
 
 	socket_data_t *data = (socket_data_t *)s->backend_data;
 
 	char *cbuf = (char *)buf;
-	int ret = 0, read_len = 0;
-	while (read_len < len) {
-		ret = recv(data->socket_id, &cbuf[read_len], len - read_len, 0);
-		if (ret <= 0) {
-			s->err_code = __get_cur_err();
-			printf("read buf [%s], error code [%d]\n", cbuf, s->err_code);
-			return -1;
-		}
-		read_len += ret;
-		if (read_len < len) {
-			if (-1 == __select_out(s, timeout)) return read_len; // timeout
-		}
+	int read_len = 0;
+
+	read_len = recv(data->socket_id, &cbuf[read_len], len - read_len, 0);
+	if (read_len == -1) {
+		s->err_code = __get_cur_err();
+		printf("read buf [%s], error code [%d]\n", cbuf, s->err_code);
+		return -1;
 	}
+
 	if (s->debug)
 		printf("read over [%s] \n", cbuf);
 
