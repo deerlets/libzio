@@ -122,11 +122,11 @@ static int __read_tcp(socket_cli_t *s, void *buf, int len, int timeout)
 		return -1;
 	}
 
-	/*if (-1 == __select_out(s, timeout)) {
+	if (-1 == __select_out(s, timeout)) {
 		printf(
 			"timeout, not bytes to read, Maybe disconnect from server or server is close.\n");
 		return -1; // timeout
-	}*/
+	}
 
 	socket_data_t *data = (socket_data_t *)s->backend_data;
 
