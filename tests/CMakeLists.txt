@@ -15,3 +15,8 @@ add_test(runDeviceTests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/runSerialTests)
 add_executable(runSocketTests socket_test.cpp)
 target_link_libraries(runSocketTests gtest gtest_main pthread zio)
 add_test(runSocketTests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/runSocketTests)
+
+# zsocket
+add_executable(runZsocketTests zsocket_test.cpp)
+target_link_libraries(runZsocketTests gtest gtest_main pthread zio)
+add_test(runZsocketTests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/runZsocketTests)
