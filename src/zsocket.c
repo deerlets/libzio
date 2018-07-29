@@ -21,6 +21,7 @@ typedef int socklen_t;
 #endif
 
 static int lib_init;
+static int in_looping;
 
 static LIST_HEAD(socks);
 static int nfds_read;
@@ -124,6 +125,9 @@ void zsocket_close(struct zsocket *s, zsocket_close_cb cb)
 		__status.nr_current_server--;
 	else if (s->type == ZS_T_CONNECTION)
 		__status.nr_current_connection--;
+
+	if (!in_looping)
+		__zsocket_close(s);
 }
 
 int zsocket_connect(struct zsocket *client,
@@ -458,10 +462,14 @@ static void zsocket_do_close()
 
 int zsocket_loop(int timeout)
 {
+	in_looping = 1;
+
 	if (zsocket_poll(timeout) == -1)
 		return -1;
 
 	zsocket_do_close();
+
+	in_looping = 0;
 	return 0;
 }
 
