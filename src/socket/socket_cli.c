@@ -98,6 +98,11 @@ static int __connect_tcp(socket_cli_t *s)
 		s->err_code = __get_cur_err();
 		return -1;
 	}
+	struct timeval timeo = {3, 0};
+	int len = sizeof(timeo);
+	timeo.tv_sec = s->con_timeout / 1000;
+	timeo.tv_usec = (s->con_timeout % 1000) * 1000;
+	setsockopt(data->socket_id, SOL_SOCKET, SO_SNDTIMEO, &timeo, len);
 
 	if (-1 == connect(data->socket_id, (struct sockaddr *)&data->remote_addr,
 	                  sizeof(data->remote_addr))) {
@@ -241,7 +246,7 @@ const socket_cli_backend_t _tcp_backend = {
 	__destory_tcp,
 };
 
-socket_cli_t *socket_cli_new(int port, const char *addr, int async)
+socket_cli_t *socket_cli_new(int port, const char *addr, int async, int con_timeout)
 {
 	if (-1 == __init()) { return NULL; }
 
@@ -266,7 +271,7 @@ socket_cli_t *socket_cli_new(int port, const char *addr, int async)
 	cli->debug = 0;
 	cli->is_connect = 0;
 	cli->async = async;
-
+	cli->con_timeout = con_timeout;
 	data->socket_id = INVALID_SOCKET;
 	cli->is_connect = false;
 	cli->debug = 0;
