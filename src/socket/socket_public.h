@@ -23,7 +23,7 @@ extern "C" {
  * @ret  null   创建失败
  *       非null 创建成功
  */
-socket_cli_t *socket_cli_new(int port, const char *addr, int async);
+socket_cli_t *socket_cli_new(int port, const char *addr, int async, int con_timeout);
 
 /*
  * @describe    连接服务器

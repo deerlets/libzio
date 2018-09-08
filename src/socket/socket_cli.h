@@ -42,7 +42,8 @@ struct _socket_cli {
 	int debug;
 	bool is_connect;
 	int err_code;
-	int async;                            //0 同步读  1 异步通过回调函数读
+	int async;                            // 0 同步读  1 异步通过回调函数读
+	int con_timeout;                      // 连接超时
 
 	const socket_cli_backend_t *backend;
 	void *backend_data;
