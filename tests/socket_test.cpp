@@ -15,7 +15,7 @@ void read_from_server(void *buf, int lenth)
 TEST(socket_cli_t, basic)
 {
 	//同步socket测试
-	socket_cli_t *t1 = socket_cli_new(8808, "172.30.141.193", 0);
+	socket_cli_t *t1 = socket_cli_new(8808, "172.30.141.193", 0, 1000);
 	socket_set_debug(t1, 1);
 	socket_connect(t1);
 	char send_buf[10] = "123456789";
@@ -26,7 +26,7 @@ TEST(socket_cli_t, basic)
 	socket_destory(t1);
 
 	//异步通过回调函数读入socket测试
-	socket_cli_t *t2 = socket_cli_new(8808, "172.30.141.193", 1);
+	socket_cli_t *t2 = socket_cli_new(8808, "172.30.141.193", 1, 1000);
 	socket_set_debug(t2, 1);
 	socket_connect(t2);
 	socket_register_notify(t2, read_from_server);

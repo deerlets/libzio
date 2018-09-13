@@ -29,16 +29,10 @@ typedef struct _serial_rtu {
 	HANDLE fd;
 	DCB old_dcb;
 #endif //_WIN32
-
 #if (defined(__unix__) || defined(unix))
     struct termios old_tios;
 	int s;
 #endif //_UNIX
-
-#if HAVE_DECL_TIOCSRS485
-	int serial_mode;
-#endif
-
 } serial_rtu_t;
 
 typedef struct _serial_backend {
@@ -55,6 +49,7 @@ struct _serial {
 	int debug;
 	bool is_open;
 	int err_code;
+	int share_mode;                       // 1 共享模式  0 独占模式
 	const serial_backend_t *backend;
 	void *backend_data;
 };
