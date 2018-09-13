@@ -7,6 +7,16 @@
 #include "serial_win.h"
 #include <assert.h>
 #include <stdio.h>
+#include <zero/list.h>
+#include <zero/mutex.h>
+
+typedef struct _serial_manger {
+	serial_t *t;
+	int refcount;
+	int opencount;
+	mutex_t mt;
+	struct list_head node;
+} serial_manger_t;
 
 #if defined(_WIN32)
 const serial_backend_t _win_serial_backend = {
@@ -30,13 +40,78 @@ const serial_backend_t _linux_serial_backend = {
 };
 #endif
 
+static LIST_HEAD(serial_mangers);
+static mutex_t g_mangers;
+
+static serial_manger_t *find_serial(const char *device)
+{
+	serial_manger_t *pos;
+	list_for_each_entry(pos, &serial_mangers, node) {
+		if (strcmp(((serial_rtu_t *)pos->t->backend_data)->device, device) == 0)
+			return pos;
+	}
+
+	return NULL;
+}
+
+static int add_serial(serial_t *serial)
+{
+	/*serial_manger_t *pos;
+	list_for_each_entry(pos, &serial_mangers, node) {
+		if (strcmp(((serial_rtu_t *)pos->t->backend_data)->device,
+		           ((serial_rtu_t *)serial->backend_data)->device) == 0)
+			return -1;
+	}*/
+	serial_manger_t *sm = malloc(sizeof(serial_manger_t));
+	sm->t = serial;
+	sm->refcount = 1;
+	sm->opencount = 0;
+	mutex_init(&sm->mt);
+
+	INIT_LIST_HEAD(&sm->node);
+	list_add(&sm->node, &serial_mangers);
+
+	return 0;
+}
+
 //对外接口定义
 serial_t *serial_new(uint8_t index, int baud, char parity,
-                     uint8_t data_bit, uint8_t stop_bit, uint8_t serial_mode)
+                     uint8_t data_bit, uint8_t stop_bit, uint8_t share_mode)
 {
+	char devname[16] = {0};
+#if defined(_WIN32)
+	sprintf(devname, "COM%d", index);
+#else
+	sprintf(devname, "/dev/ttyS%d", index);
+#endif
+	mutex_lock(&g_mangers);
+	serial_manger_t *sm = find_serial(devname);
+	if (sm) {
+		serial_rtu_t *rtu = (serial_rtu_t *)sm->t->backend_data;
+		// 非共享串口
+		if (0 == share_mode || 0 == sm->t->share_mode) {
+			printf(
+				"com%d is busy in use by other but is not share mode(%d, %d)\n",
+				index, share_mode, sm->t->share_mode);
+			mutex_unlock(&g_mangers);
+			return NULL;
+		}
+		// 共享串口参数不同
+		if (rtu->baud != baud || rtu->parity != parity ||
+		    rtu->data_bit != data_bit || rtu->stop_bit != stop_bit) {
+			printf("com%d serial port parameter is diverse\n", index);
+			mutex_unlock(&g_mangers);
+			return NULL;
+		}
+		mutex_lock(&sm->mt);
+		++sm->refcount;
+		mutex_unlock(&sm->mt);
+		mutex_unlock(&g_mangers);
+		return sm->t;
+	}
+
 	serial_t *ctx;
 	serial_rtu_t *ctx_rtu;
-
 	ctx = (serial_t *)malloc(sizeof(serial_t));
 
 #if defined(_WIN32)
@@ -47,18 +122,13 @@ serial_t *serial_new(uint8_t index, int baud, char parity,
 
 	ctx->backend_data = (serial_rtu_t *)malloc(sizeof(serial_rtu_t));
 	ctx_rtu = (serial_rtu_t *)ctx->backend_data;
-
-#if defined(_WIN32)
-	sprintf(ctx_rtu->device, "COM%d", index);
-#else
-	sprintf(ctx_rtu->device, "/dev/ttyS%d", index);
-#endif
-
+	strcpy(ctx_rtu->device, devname);
 	ctx_rtu->baud = baud;
 	if (parity == 'N' || parity == 'E' || parity == 'O') {
 		ctx_rtu->parity = parity;
 	} else {
 		ctx->backend->destory(ctx);
+		mutex_unlock(&g_mangers);
 		return NULL;
 	}
 	ctx_rtu->data_bit = data_bit;
@@ -67,12 +137,15 @@ serial_t *serial_new(uint8_t index, int baud, char parity,
 	ctx->is_open = false;
 	ctx->err_code = 0;
 	ctx->debug = 0;
+	ctx->share_mode = share_mode;
 
 #if defined(_WIN32)
 	ctx_rtu->fd = INVALID_HANDLE_VALUE;
 #else
 	ctx_rtu->s = -1;
 #endif
+	add_serial(ctx);
+	mutex_unlock(&g_mangers);
 
 	return ctx;
 }
@@ -80,37 +153,118 @@ serial_t *serial_new(uint8_t index, int baud, char parity,
 int serial_open(serial_t *ctx)
 {
 	assert(ctx);
-	return ctx->backend->open(ctx);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm)
+		return -1;
+
+	// 先判断打开计算
+	if (sm->opencount > 0) {
+		mutex_lock(&sm->mt);
+		++sm->opencount;
+		ctx->is_open = true;
+		mutex_unlock(&sm->mt);
+		return 0;
+	}
+	// 没有打开则打开
+	if (0 == ctx->backend->open(ctx)) {
+		mutex_lock(&sm->mt);
+		++sm->opencount;
+		ctx->is_open = true;
+		mutex_unlock(&sm->mt);
+		return 0;
+	}
+
+	return -1;
 }
 
 int serial_read(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 {
 	assert(ctx);
-	return ctx->backend->read(ctx, buf, len, mtimeout);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm) {
+		return -1;
+	}
+	mutex_lock(&sm->mt);
+	int rc = ctx->backend->read(ctx, buf, len, mtimeout);
+	mutex_unlock(&sm->mt);
+
+	return rc;
 }
 
 int serial_write(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 {
 	assert(ctx);
-	return ctx->backend->write(ctx, buf, len, mtimeout);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm) {
+		return -1;
+	}
+	mutex_lock(&sm->mt);
+	int rc = ctx->backend->write(ctx, buf, len, mtimeout);
+	mutex_unlock(&sm->mt);
+
+	return rc;
 }
 
 int serial_clean(serial_t *ctx)
 {
 	assert(ctx);
-	return ctx->backend->clean(ctx);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm) {
+		return -1;
+	}
+	mutex_lock(&sm->mt);
+	int rc = ctx->backend->clean(ctx);
+	mutex_unlock(&sm->mt);
+
+	return rc;
 }
 
 int serial_close(serial_t *ctx)
 {
 	assert(ctx);
-	return ctx->backend->close(ctx);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm) {
+		return -1;
+	}
+	if (sm->opencount > 0){
+		mutex_lock(&sm->mt);
+		--sm->opencount;
+		mutex_unlock(&sm->mt);
+	}
+	if (0 == sm->opencount)
+		return ctx->backend->close(ctx);
+
+	return 0;
 }
 
 void serial_destory(serial_t *ctx)
 {
 	assert(ctx);
-	ctx->backend->destory(ctx);
+	mutex_lock(&g_mangers);
+	serial_manger_t *sm = find_serial(
+		((serial_rtu_t *)ctx->backend_data)->device);
+	if (!sm) {
+		free(ctx);
+		mutex_unlock(&g_mangers);
+		return;
+	}
+	if (sm->refcount > 0){
+		mutex_lock(&sm->mt);
+		--sm->refcount;
+		mutex_unlock(&sm->mt);
+	}
+
+	if (sm->refcount == 0) {
+		list_del(&sm->node);
+		ctx->backend->destory(ctx);
+		free(sm);
+	}
+	mutex_unlock(&g_mangers);
 }
 
 bool serial_is_open(serial_t *ctx)

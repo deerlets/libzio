@@ -8,8 +8,13 @@
 
 TEST(serial_t, basic)
 {
-	serial_t *t = serial_new(1, 9600, 'N', 8, 1, 0);
+	serial_t *t = serial_new(1, 9600, 'N', 8, 1, 1);
+	serial_t *t1 = serial_new(1, 9600, 'N', 8, 1, 1);
+	assert(t == t1);
+
 	if (0 != serial_open(t))
+		return;
+	if (0 != serial_open(t1))
 		return;
 
 	unsigned char send[] = {'A', 'B', 'C', 'D', 'E'};
@@ -55,7 +60,9 @@ TEST(serial_t, basic)
 
 	printf("\n");
 	serial_close(t);
+	serial_close(t1);
 
 	printf("port open is %d \n", serial_is_open(t));
 	serial_destory(t);
+	serial_destory(t1);
 }

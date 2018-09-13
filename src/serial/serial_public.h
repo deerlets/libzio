@@ -19,7 +19,7 @@ extern "C" {
  *       非null 创建成功
  */
 serial_t* serial_new(uint8_t index, int baud, char parity,
-                     uint8_t data_bit, uint8_t stop_bit, uint8_t serial_mode);
+                     uint8_t data_bit, uint8_t stop_bit, uint8_t share_mode);
 
 /*
  * @describe 打开串口
