@@ -10,6 +10,8 @@ if (WIN32)
 	target_link_libraries(zio Ws2_32)
 endif ()
 
+target_link_libraries(zio pthread)
+
 install(TARGETS zio
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
