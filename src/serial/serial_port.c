@@ -187,9 +187,9 @@ int serial_read(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 	if (!sm) {
 		return -1;
 	}
-	pthread_mutex_lock(&sm->mt);
+	//pthread_mutex_lock(&sm->mt);
 	int rc = ctx->backend->read(ctx, buf, len, mtimeout);
-	pthread_mutex_unlock(&sm->mt);
+	//pthread_mutex_unlock(&sm->mt);
 
 	return rc;
 }
@@ -202,9 +202,9 @@ int serial_write(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 	if (!sm) {
 		return -1;
 	}
-	pthread_mutex_lock(&sm->mt);
+	//pthread_mutex_lock(&sm->mt);
 	int rc = ctx->backend->write(ctx, buf, len, mtimeout);
-	pthread_mutex_unlock(&sm->mt);
+	//pthread_mutex_unlock(&sm->mt);
 
 	return rc;
 }
@@ -217,9 +217,9 @@ int serial_clean(serial_t *ctx)
 	if (!sm) {
 		return -1;
 	}
-	pthread_mutex_lock(&sm->mt);
+	//pthread_mutex_lock(&sm->mt);
 	int rc = ctx->backend->clean(ctx);
-	pthread_mutex_unlock(&sm->mt);
+	//pthread_mutex_unlock(&sm->mt);
 
 	return rc;
 }
@@ -284,4 +284,26 @@ int serial_get_last_error(serial_t *ctx)
 {
 	assert(ctx);
 	return ctx->err_code;
+}
+
+void serial_lock(serial_t *ctx)
+{
+    assert(ctx);
+    serial_manger_t *sm = find_serial(
+            ((serial_rtu_t *)ctx->backend_data)->device);
+    if (!sm) {
+        return;
+    }
+    pthread_mutex_lock(&sm->mt);
+}
+
+void serial_unlock(serial_t *ctx)
+{
+    assert(ctx);
+    serial_manger_t *sm = find_serial(
+            ((serial_rtu_t *)ctx->backend_data)->device);
+    if (!sm) {
+        return;
+    }
+    pthread_mutex_unlock(&sm->mt);
 }
