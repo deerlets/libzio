@@ -76,6 +76,10 @@ void serial_set_debug(serial_t *ctx, bool debug);
  */
 int serial_get_last_error(serial_t *ctx);
 
+void serial_lock(serial_t *ctx);
+
+void serial_unlock(serial_t *ctx);
+
 #ifdef __cplusplus
 }
 #endif
