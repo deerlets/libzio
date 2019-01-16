@@ -48,6 +48,14 @@ int socket_read(socket_cli_t *s, void *buf, int len, int timeout);
 
 /*
  * @describe    读取数据
+ * @ret  >0     实际读取字节个数
+ *       -1     失败
+ * 两种情况返回: 读满len返回;超时返回
+ */
+int socket_read_all(socket_cli_t *s, void *buf, int len, int timeout);
+
+/*
+ * @describe    读取数据
  * @ret  >0     实际写入字节个数
  *       -1     失败
  */

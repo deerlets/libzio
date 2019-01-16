@@ -32,6 +32,7 @@ typedef struct _socket_data socket_data_t;
 typedef struct _socket_cli_backend {
 	int (*connect)(socket_cli_t *s);
 	int (*read)(socket_cli_t *s, void *buf, int len, int timeout);
+	int (*read_all)(socket_cli_t *s, void *buf, int len, int timeout);
 	int (*write)(socket_cli_t *s, void *buf, int len, int timeout);
 	int (*clean)(socket_cli_t *s);
 	int (*disconnect)(socket_cli_t *s);
