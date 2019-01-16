@@ -151,6 +151,53 @@ static int __read_tcp(socket_cli_t *s, void *buf, int len, int timeout)
 	return read_len;
 }
 
+static int __read_tcp_all(socket_cli_t *s, void *buf, int len, int timeout)
+{
+	if (!s->is_connect) {
+		printf("is not connect server \n");
+		return -1;
+	}
+	if (s->async) {
+		printf("async mode by socket_register_notify to read. \n");
+		return -1;
+	}
+
+	if (-1 == __select_out(s, timeout)) {
+		printf(
+			"timeout, not bytes to read, Maybe disconnect from server or server is close.\n");
+		return -1; // timeout
+	}
+
+	socket_data_t *data = (socket_data_t *)s->backend_data;
+
+	char *cbuf = (char *)buf;
+	int read_len = 0;
+
+	read_len = recv(data->socket_id, &cbuf[read_len], len - read_len, 0);
+	if (read_len == -1) {
+		s->err_code = __get_cur_err();
+		printf("read buf [%s], error code [%d]\n", cbuf, s->err_code);
+		return -1;
+	}
+
+	while(read_len < len) {
+		if (-1 == __select_out(s, timeout)) {
+			if (s->debug)
+				printf("read over [%s] \n", cbuf);
+			return read_len; // timeout
+		}
+		int temp = recv(data->socket_id, &cbuf[read_len], len - read_len, 0);
+		if (-1 == temp)
+			return read_len;
+		read_len += temp;
+	}
+
+	if (s->debug)
+		printf("read over [%s] \n", cbuf);
+
+	return read_len;
+}
+
 static int __write_tcp(socket_cli_t *s, void *buf, int len, int timeout)
 {
 	if (!s->is_connect) return -1;
@@ -240,6 +287,7 @@ static void __destory_tcp(socket_cli_t *s)
 const socket_cli_backend_t _tcp_backend = {
 	__connect_tcp,
 	__read_tcp,
+	__read_tcp_all,
 	__write_tcp,
 	__clean_tcp,
 	__disconnect_tcp,
@@ -308,6 +356,12 @@ int socket_read(socket_cli_t *s, void *buf, int len, int timeout)
 {
 	assert(s);
 	return s->backend->read(s, buf, len, timeout);
+}
+
+int socket_read_all(socket_cli_t *s, void *buf, int len, int timeout)
+{
+	assert(s);
+	return s->backend->read_all(s, buf, len, timeout);
 }
 
 int socket_write(socket_cli_t *s, void *buf, int len, int timeout)
