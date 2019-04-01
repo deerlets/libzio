@@ -214,36 +214,31 @@ int unix_serial_read(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 	if (!ctx->is_open)
 		return -1;
 
-	int retlen = 0;
 	serial_rtu_t *ctx_rtu = (serial_rtu_t *)ctx->backend_data;
 
 	if (ctx_rtu->s == -1) {
 		return -1;
 	}
 
-	int read_temp = 0;
+	int read_len = 0;
+	while(read_len < len) {
+		if (mtimeout >= 0)
+			if (-1 == unix_serial_set_timeout(ctx, mtimeout)) break;
+		unsigned char temp[1024] = {0};
+		int temp_len = len - read_len < 1024 ? len - read_len : 1024;
+		int cur_len = read(ctx_rtu->s, temp, temp_len);
 
-	for (int i = 0; i < len; i++) {
-		if (mtimeout >= 0) {
-			if (-1 == unix_serial_set_timeout(ctx, mtimeout)) {
-				break;
-			}
-		}
-		unsigned char temp[2] = {0};
-		read_temp = read(ctx_rtu->s, temp, 1);
-
-		if (read_temp <= 0) return retlen;
-		buf[i] = temp[0];
-		retlen = i + 1;
+		if (cur_len <= 0) return read_len;
+		memcpy(buf[read_len], temp, cur_len);
+		read_len += cur_len;
 	}
 
-	if (retlen <= 0) {
+	if (read_len <= 0) {
 		ctx->err_code = errno;
-
 		return -1;
 	}
 
-	return retlen;
+	return read_len;
 }
 
 int unix_serial_write(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
