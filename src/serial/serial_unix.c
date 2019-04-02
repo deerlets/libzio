@@ -229,7 +229,7 @@ int unix_serial_read(serial_t *ctx, unsigned char *buf, int len, int mtimeout)
 		int cur_len = read(ctx_rtu->s, temp, temp_len);
 
 		if (cur_len <= 0) return read_len;
-		memcpy(buf[read_len], temp, cur_len);
+		memcpy(&buf[read_len], temp, cur_len);
 		read_len += cur_len;
 	}
 
