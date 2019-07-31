@@ -18,6 +18,8 @@ typedef int socklen_t;
 #else
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <time.h>
 #endif
 
 static int lib_init;

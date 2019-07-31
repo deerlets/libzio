@@ -5,6 +5,7 @@
 #include "list.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <time.h>
 
 #ifdef __WIN32
 #include <Winsock2.h>
